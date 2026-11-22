@@ -1,0 +1,31 @@
+<?php
+declare(strict_types=1);
+require_once __DIR__ . '/bootstrap.php';
+function page_header(string $title, string $active = ''): void {
+    $postCount = query('SELECT COUNT(*) FROM posts')->fetchColumn();
+    ?><!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title><?= e($title) ?> · Small Hours</title><link rel="stylesheet" href="/assets/style.css"><link rel="icon" href="/assets/favicon.svg" type="image/svg+xml"></head>
+<body><div class="site"><div class="utility"><span>A little corner of the internet.</span><span><a href="/rules.php">House rules</a> <span aria-hidden="true">|</span> <a href="/admin.php">Admin</a></span></div>
+<header class="masthead"><a class="wordmark" href="/"><span class="logo" aria-hidden="true">sh.</span><span>small hours<small>THE ANONYMOUS BULLETIN BOARD</small></span></a><div class="masthead-note">No accounts. Just conversations.<br><span>Leave something good behind.</span></div></header>
+<nav aria-label="Boards" class="boardnav"><a <?= $active === '' ? 'aria-current="page"' : '' ?> href="/">[ home ]</a><?php foreach (BOARDS as $slug => $info): ?><a <?= $active === $slug ? 'aria-current="page"' : '' ?> href="/<?= e($slug) ?>/">/<?= e($slug) ?>/</a><?php endforeach; ?><span class="nav-note">Est. 2005*</span></nav>
+<div class="statusbar"><span><span class="online-dot" aria-hidden="true"></span> Open to everyone</span><span><?= number_format((int)$postCount) ?> posts &amp; counting</span></div>
+<main><?php
+}
+function page_footer(): void { ?>
+</main><footer><span><strong>small hours</strong> · a slower kind of internet.</span><span><a href="/rules.php">Be kind.</a> &nbsp; * In spirit, anyway.</span></footer></div></body></html>
+<?php }
+function render_body(string $body): string {
+    $lines = explode("\n", $body);
+    return implode('<br>', array_map(fn($line) => str_starts_with($line, '>') ? '<span class="quote">' . e($line) . '</span>' : e($line), $lines));
+}
+function render_post(array $post, array $thread, bool $op = false): void { ?>
+<article class="post <?= $op ? 'op' : 'reply' ?>" id="p<?= (int)$post['id'] ?>"><div class="post-meta"><strong>Anonymous</strong><?php if ($op): ?><span class="tag">OP</span><?php endif; ?><time datetime="<?= e(str_replace(' ', 'T', $post['created_at'])) ?>Z"><?= e(gmdate('d M Y · H:i', strtotime($post['created_at'] . ' UTC'))) ?> UTC</time><a class="post-number" href="/<?= e($thread['board_slug']) ?>/<?= (int)$thread['id'] ?>#p<?= (int)$post['id'] ?>">No. <?= (int)$post['id'] ?></a></div>
+<?php if ($post['image']): ?><figure class="attachment"><a href="/image.php?file=<?= e($post['image']) ?>" target="_blank" rel="noopener"><img src="/image.php?file=<?= e($post['image']) ?>" alt="<?= e($post['image_name']) ?>" width="<?= (int)$post['image_width'] ?>" height="<?= (int)$post['image_height'] ?>" loading="lazy"></a><figcaption><?= e($post['image_name']) ?> · <?= (int)$post['image_width'] ?>×<?= (int)$post['image_height'] ?></figcaption></figure><?php endif; ?>
+<div class="post-body"><?= render_body($post['body']) ?></div></article><?php }
+function post_form(string $slug, ?array $thread = null, string $error = '', array $values = []): void { ?>
+<section class="panel composer" id="compose"><h2><?= $thread ? 'Leave a reply' : 'Start a conversation' ?><span>No registration needed.</span></h2>
+<?php if ($error): ?><p role="alert" class="notice error"><?= e($error) ?></p><?php endif; ?>
+<form action="/post.php" method="post" enctype="multipart/form-data"><?php csrf_field(); ?><input type="hidden" name="board" value="<?= e($slug) ?>"><?php if ($thread): ?><input type="hidden" name="thread" value="<?= (int)$thread['id'] ?>"><?php else: ?><div class="form-row"><label for="subject">Subject</label><input id="subject" name="subject" maxlength="100" required placeholder="What's on your mind?" value="<?= e($values['subject'] ?? '') ?>"></div><?php endif; ?>
+<div class="form-row"><label for="body">Message</label><textarea id="body" name="body" rows="4" maxlength="5000" placeholder="Say hello. Share a thought. Ask a question."><?= e($values['body'] ?? '') ?></textarea></div>
+<div class="form-row"><label for="image">Image <small>(optional)</small></label><div><input id="image" type="file" name="image" accept="image/jpeg,image/png,image/gif,image/webp"><small>JPG, PNG, GIF or WebP · up to 4 MB · GIFs are saved as still images.</small></div></div>
+<div class="form-actions"><span>Posting as <strong>Anonymous</strong>. <a href="/rules.php">Keep it friendly.</a></span><button type="submit"><?= $thread ? 'Post reply' : 'Create thread' ?></button></div></form></section><?php }
