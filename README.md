@@ -2,7 +2,7 @@
 
 A PHP bulletin board with a classic forum layout, guest posting, optional username/password accounts, and avatars. No frontend dependencies.
 
-- `/gen/`, `/tech/`, `/art/`, `/music/`, `/games/` boards.
+- `/gen/`, `/tech/`, `/art/`, `/music/`, `/games/`, `/books/`, `/film/` boards.
 - Anonymous browser IDs and message IDs, displayed with at least eight digits. Visitor IDs use an HttpOnly cookie and require no account.
 - Board pages list threads with their author, reply count and latest post. `/gen/123` shows the entire conversation; replying requires login.
 - Ten threads per board page, ordered by pinned status and latest activity.

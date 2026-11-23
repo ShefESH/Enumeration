@@ -101,7 +101,7 @@ def png():
 
 def run():
     with server() as (client, directory, env):
-        for path in ['/', '/gen/', '/tech/', '/art/', '/music/', '/games/', '/rules.php', '/admin.php']:
+        for path in ['/', '/gen/', '/tech/', '/art/', '/music/', '/games/', '/books/', '/film/', '/rules.php', '/admin.php']:
             assert client.text(path)[0] == 200, path
         for path in ['/missing/', '/gen/999999', '/tech/1', '/app/bootstrap.php', '/data/forum.sqlite', '/.git/config', '/assets/../../app/bootstrap.php']:
             assert client.text(path)[0] == 404, path

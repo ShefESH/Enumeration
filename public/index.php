@@ -8,11 +8,11 @@ if ($path === '/') {
     $recentPosts = query('SELECT p.id post_id, p.thread_id, p.created_at, t.board_slug, t.subject, u.username FROM posts p JOIN threads t ON t.id=p.thread_id LEFT JOIN users u ON u.id=p.account_id WHERE p.id IN (SELECT MAX(id) FROM posts GROUP BY thread_id) ORDER BY p.id DESC LIMIT 5')->fetchAll();
     $memberCount = (int)query('SELECT COUNT(*) FROM users')->fetchColumn();
     $newest = query('SELECT username FROM users ORDER BY id DESC LIMIT 1')->fetchColumn();
-    $descriptions = ['gen' => 'General discussion.', 'tech' => 'Computers, software and hardware.', 'art' => 'Art, design, photography and crafts.', 'music' => 'Artists, albums and music discussion.', 'games' => 'Video games, tabletop games and gaming discussion.'];
+    $descriptions = ['gen' => 'General discussion.', 'tech' => 'Computers, software and hardware.', 'art' => 'Art, design, photography and crafts.', 'music' => 'Artists, albums and music discussion.', 'games' => 'Video games, tabletop games and gaming discussion.', 'books' => 'Books, authors and reading.', 'film' => 'Films, television and documentaries.'];
     ?>
     <div class="page-heading index-heading"><h1 class="sr-only">Board index</h1><span class="board-clock"><?= e(gmdate('D d M Y, H:i')) ?> UTC</span></div>
     <div class="index-layout"><div class="forum-groups">
-    <?php foreach (['General' => ['gen'], 'Interests' => ['tech', 'art', 'music', 'games']] as $category => $slugs): ?>
+    <?php foreach (['General' => ['gen'], 'Interests' => ['tech', 'art', 'music', 'games', 'books', 'film']] as $category => $slugs): ?>
     <section class="forum-category" aria-label="<?= e($category) ?>"><table class="forum-table"><thead><tr><th scope="col"><?= e($category) ?></th><th scope="col" class="count">Threads</th><th scope="col" class="count">Posts</th><th scope="col" class="last-column">Last post</th></tr></thead><tbody>
     <?php foreach ($slugs as $slug): ?><tr><td><div class="forum-cell"><span class="forum-icon" aria-hidden="true"></span><div><a class="forum-title" href="/<?= e($slug) ?>/"><?= e(BOARDS[$slug][0]) ?></a><p class="forum-description"><?= e($descriptions[$slug]) ?></p><span class="mobile-counts"><?= (int)$counts[$slug]['threads'] ?> threads / <?= (int)$counts[$slug]['posts'] ?> posts</span></div></div></td><td class="count"><?= number_format((int)$counts[$slug]['threads']) ?></td><td class="count"><?= number_format((int)$counts[$slug]['posts']) ?></td><td class="last-column"><?php $last = $lastPosts[$slug] ?? null; if ($last) $last['board_slug'] = $slug; last_post_cell($last); ?></td></tr><?php endforeach; ?>
     </tbody></table></section><?php endforeach; ?>
@@ -24,7 +24,7 @@ if (!preg_match('~^/([a-z]+)(?:/([1-9][0-9]*))?/?$~D', $path, $matches)) fail(40
 $board = board($matches[1]); $slug = $board['slug'];
 if (isset($matches[2])) {
     $thread = thread((int)$matches[2], $slug); page_header($thread['subject'], $slug); ?>
-    <div class="breadcrumb"><a href="/">Board index</a> / <a href="/<?= e($slug) ?>/">/<?= e($slug) ?>/</a> / Thread <?= (int)$thread['id'] ?></div>
+    <div class="breadcrumb"><a href="/">Board index</a> / <a href="/<?= e($slug) ?>/"><?= e($board['title']) ?></a> / Thread <?= (int)$thread['id'] ?></div>
     <div class="page-heading"><div><h1><?= e($thread['subject']) ?></h1></div></div>
     <section class="thread full-thread"><?php $posts = thread_posts((int)$thread['id']); foreach ($posts as $i => $post) render_post($post, $thread, $i === 0, false); ?></section>
     <?php if ($thread['locked']): ?><p class="notice">This thread is closed.</p><?php else: post_form($slug, $thread); endif;
@@ -34,7 +34,7 @@ $page = max(1, (int)input('page', $_GET)); $total = (int)query('SELECT COUNT(*) 
 $pages = max(1, (int)ceil($total / 10)); $page = min($page, $pages);
 $threads = query('SELECT t.*, (SELECT COUNT(*) FROM posts WHERE thread_id=t.id) post_count, author.username author_name, lp.id last_post_id, lp.created_at last_post_at, last_author.username last_author_name FROM threads t LEFT JOIN posts op ON op.id=(SELECT MIN(id) FROM posts WHERE thread_id=t.id) LEFT JOIN users author ON author.id=op.account_id LEFT JOIN posts lp ON lp.id=(SELECT MAX(id) FROM posts WHERE thread_id=t.id) LEFT JOIN users last_author ON last_author.id=lp.account_id WHERE t.board_slug=? ORDER BY t.pinned DESC, t.bumped_at DESC, t.id DESC LIMIT 10 OFFSET ' . (($page - 1) * 10), [$slug])->fetchAll();
 page_header('/' . $slug . '/ — ' . $board['title'], $slug); ?>
-<div class="breadcrumb"><a href="/">Board index</a> / /<?= e($slug) ?>/</div>
+<div class="breadcrumb"><a href="/">Board index</a> / <?= e($board['title']) ?></div>
 <div class="page-heading"><div><h1><?= e($board['title']) ?> <span class="heading-code">/<?= e($slug) ?>/</span></h1></div><a class="button primary" href="#compose">New thread</a></div>
 <div class="board-tools"><span><?= $total ?> threads</span><form action="/search.php" method="get"><input type="hidden" name="board" value="<?= e($slug) ?>"><label class="sr-only" for="search">Search this board</label><input id="search" name="q" placeholder="Search this board…" maxlength="120" required><button>Search</button></form></div>
 <section class="forum-category" aria-label="Threads"><table class="topic-table"><thead><tr><th scope="col">Thread / Author</th><th scope="col" class="count">Replies</th><th scope="col" class="last-column">Last post</th></tr></thead><tbody>

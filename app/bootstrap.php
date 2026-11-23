@@ -8,6 +8,8 @@ const BOARDS = [
     'art' => ['Arts & crafts', 'Things you made. Things that inspire you.'],
     'music' => ['Music', 'Good records and very important mixtapes.'],
     'games' => ['Games', 'One more turn. One more level.'],
+    'books' => ['Books', 'Books, authors and reading.'],
+    'film' => ['Film & TV', 'Films, television and documentaries.'],
 ];
 function data_dir(): string { return getenv('FORUM_DATA_DIR') ?: ROOT . '/data'; }
 function lab_mode(): bool { return getenv('FORUM_LAB_MODE') === '1'; }

@@ -4,6 +4,7 @@ import contextlib
 import csv
 import http.cookiejar
 import io
+import html as html_lib
 import os
 from pathlib import Path
 import re
@@ -110,6 +111,13 @@ def run():
         assert 'Server time:' in home and re.search(r'PHP \d+\.\d+', home) and re.search(r'SQLite \d+\.\d+', home)
         assert 'All times are UTC' not in home
         assert 'Legacy body' in alice.text('/gen/1')[1]
+        for route, expected in [('/gen/', 'Board index / General'), ('/gen/1', 'Board index / General / Thread 1'), ('/search.php?board=gen', 'Board index / General / Search'), ('/books/', 'Board index / Books'), ('/film/', 'Board index / Film & TV')]:
+            status, page, _, _ = alice.text(route)
+            assert status == 200
+            crumb = re.search(r'<div class="breadcrumb">(.*?)</div>', page).group(1)
+            assert html_lib.unescape(re.sub('<[^>]+>', '', crumb)) == expected
+        assert '/books/' in home and '/film/' in home
+
         assert alice.text('/account.php')[3].endswith('/login.php')
         token = alice.token('/register.php')
         password = '  account-test-password  '
@@ -230,11 +238,16 @@ def run():
             assert fresh.text('/login.php', dict(csrf=token, username='Test_User', password='wrong'))[0] == 422
         assert 'too fast' in fresh.text('/login.php', dict(csrf=token, username='Test_User', password=password))[1]
         print('PASS account revocation and login throttling')
+        for slug in ['books', 'film']:
+            status, _, _, url = fresh.text('/post.php', dict(csrf=fresh.token('/'+slug+'/'), board=slug, subject='New board check', body='Board posting check'))
+            assert status == 200 and '/'+slug+'/' in url
+            assert sql(directory, 'SELECT COUNT(*) FROM threads WHERE board_slug=?', (slug,))[0][0] == 1
+        print('PASS Books and Film & TV routes, posting and single-separator breadcrumbs')
         sql(directory, 'DELETE FROM posts')
         sql(directory, 'DELETE FROM threads')
         sql(directory, 'DELETE FROM users')
         empty_home = fresh.text('/')[1]
-        assert empty_home.count('class="no-posts"') == 5
+        assert empty_home.count('class="no-posts"') == 7
         assert '<p>No posts.</p>' in empty_home
         assert 'Newest member:' not in empty_home
         assert fresh.text('/gen/')[0] == 200
