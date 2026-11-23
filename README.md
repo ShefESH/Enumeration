@@ -1,6 +1,6 @@
-# Small Hours
+# Enumeration
 
-A small anonymous PHP bulletin board with an unapologetically 2005 appearance: serif headings, simple stylesheets, compact tables, muted colours, and no frontend dependencies.
+A simple anonymous PHP bulletin board. Hard rectangular blocks, Times New Roman, readable text, and exactly four CSS colours: black, white, grey, and navy. No frontend dependencies.
 
 - `/gen/`, `/tech/`, `/art/`, `/music/`, `/games/` boards.
 - Anonymous threads and replies, with the first **five posts including the opening post** on board pages. `/gen/123` shows the entire conversation.
