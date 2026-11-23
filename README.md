@@ -2,9 +2,11 @@
 
 A PHP bulletin board with a classic forum layout, guest posting, optional username/password accounts, and avatars. No frontend dependencies.
 
-- `/gen/`, `/tech/`, `/art/`, `/music/`, `/games/`, `/books/`, `/film/` boards.
+- General boards: `/gen/`, `/intro/`, `/life/`, `/news/`.
+- Interests: `/tech/`, `/art/`, `/music/`, `/games/`, `/books/`, `/film/`, `/food/`, `/sport/`, `/travel/`.
+- Special interests: `/retro/`, `/diy/`, `/space/`, `/linux/`, `/garden/`.
 - Anonymous browser IDs and message IDs, displayed with at least eight digits. Visitor IDs use an HttpOnly cookie and require no account.
-- Board pages list threads with their author, reply count and latest post. `/gen/123` shows the entire conversation; replying requires login.
+- Board pages list threads with their author, reply count and latest post. `/gen/123` shows the entire conversation; replying requires login. Each post has a Reply button that quotes its author, message and attachment link at the start of the reply. Quotes link to the original post and disappear if that post is removed.
 - Ten threads per board page, ordered by pinned status and latest activity.
 - Optional image attachments, image-only replies, and subject search.
 - `/admin.php` for password-protected moderation: pin, close/reopen, remove replies, and delete threads and their images.
@@ -26,7 +28,7 @@ php bin/admin.php
 php -d upload_max_filesize=4M -d post_max_size=6M -S 127.0.0.1:8080 -t public public/router.php
 ```
 
-Open <http://127.0.0.1:8080>. The database initializes automatically. Without the optional seed step, boards start empty. Posting never requires an account. If no admin password is configured, moderator login is disabled; there is no default password. Password entry in the CLI is visible, so run it in a private terminal.
+Open <http://127.0.0.1:8080>. The database initializes automatically. Without the optional seed step, boards start empty. Starting a thread does not require an account; replies require login. If no admin password is configured, moderator login is disabled; there is no default password. Password entry in the CLI is visible, so run it in a private terminal.
 
 ## Configuration
 

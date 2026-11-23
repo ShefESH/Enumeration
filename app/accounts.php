@@ -29,9 +29,15 @@ function register_user(string $username, string $password): array {
     return ['id' => (int)db()->lastInsertId(), 'username' => $username, 'password_hash' => $hash];
 }
 function thread_posts(int $id, ?int $limit = null): array {
-    $sql = 'SELECT p.*, u.username FROM posts p LEFT JOIN users u ON u.id=p.account_id WHERE p.thread_id=? ORDER BY p.id';
+    $sql = 'SELECT p.*, u.username, original.id quoted_id, original.body quoted_body, original.image quoted_image, original.image_name quoted_image_name, author.username quoted_username FROM posts p LEFT JOIN users u ON u.id=p.account_id LEFT JOIN posts original ON original.id=p.reply_to AND original.thread_id=p.thread_id LEFT JOIN users author ON author.id=original.account_id WHERE p.thread_id=? ORDER BY p.id';
     if ($limit !== null) $sql .= ' LIMIT ' . max(1, $limit);
     return query($sql, [$id])->fetchAll();
+}
+function reply_target(string $id, int $threadId): array {
+    if (!ctype_digit($id)) throw new RuntimeException('Choose a post from this thread to reply to.');
+    $post = query('SELECT p.*, u.username FROM posts p LEFT JOIN users u ON u.id=p.account_id WHERE p.id=? AND p.thread_id=?', [$id, $threadId])->fetch();
+    if (!$post) throw new RuntimeException('That post is no longer available in this thread.');
+    return $post;
 }
 // Reuse the attachment decoder and limits, then store only a 96px PNG thumbnail.
 function save_avatar(): string {

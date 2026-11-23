@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS posts (
     thread_id INTEGER NOT NULL REFERENCES threads(id) ON DELETE CASCADE,
     user_id INTEGER REFERENCES anonymous_users(id),
     account_id INTEGER REFERENCES users(id),
+    reply_to INTEGER REFERENCES posts(id) ON DELETE SET NULL,
     body TEXT NOT NULL,
     image TEXT,
     image_name TEXT,

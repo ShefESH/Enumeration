@@ -10,6 +10,22 @@ const BOARDS = [
     'games' => ['Games', 'One more turn. One more level.'],
     'books' => ['Books', 'Books, authors and reading.'],
     'film' => ['Film & TV', 'Films, television and documentaries.'],
+    'intro' => ['Introductions', 'Introduce yourself and meet other members.'],
+    'life' => ['Everyday life', 'Work, study and day-to-day life.'],
+    'news' => ['Current affairs', 'News and events around the world.'],
+    'food' => ['Food & cooking', 'Recipes, cooking and food discussion.'],
+    'sport' => ['Sport & fitness', 'Matches, training and staying active.'],
+    'travel' => ['Travel', 'Places, trips and local knowledge.'],
+    'retro' => ['Retro computing', 'Old computers, consoles and preservation.'],
+    'diy' => ['DIY & electronics', 'Builds, repairs, circuits and projects.'],
+    'space' => ['Astronomy & space', 'Stargazing, telescopes and space exploration.'],
+    'linux' => ['Linux & open source', 'Distributions, self-hosting and open-source software.'],
+    'garden' => ['Gardening', 'Plants, growing food and outdoor spaces.'],
+];
+const BOARD_CATEGORIES = [
+    'General' => ['gen', 'intro', 'life', 'news'],
+    'Interests' => ['tech', 'art', 'music', 'games', 'books', 'film', 'food', 'sport', 'travel'],
+    'Special interests' => ['retro', 'diy', 'space', 'linux', 'garden'],
 ];
 function data_dir(): string { return getenv('FORUM_DATA_DIR') ?: ROOT . '/data'; }
 function lab_mode(): bool { return getenv('FORUM_LAB_MODE') === '1'; }
@@ -27,6 +43,9 @@ function db(): PDO {
     }
     if (!in_array('account_id', $columns, true)) {
         $db->exec('ALTER TABLE posts ADD COLUMN account_id INTEGER REFERENCES users(id)');
+    }
+    if (!in_array('reply_to', $columns, true)) {
+        $db->exec('ALTER TABLE posts ADD COLUMN reply_to INTEGER REFERENCES posts(id) ON DELETE SET NULL');
     }
     $db->exec("INSERT OR IGNORE INTO anonymous_users (token_hash) SELECT 'legacy:' || id FROM posts WHERE user_id IS NULL");
     $db->exec("UPDATE posts SET user_id=(SELECT id FROM anonymous_users WHERE token_hash='legacy:' || posts.id) WHERE user_id IS NULL");

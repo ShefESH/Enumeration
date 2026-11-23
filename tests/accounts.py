@@ -58,6 +58,7 @@ class Client:
 
 def sql(directory, statement, values=()):
     with sqlite3.connect(directory / 'forum.sqlite') as con:
+        con.execute('PRAGMA foreign_keys = ON')
         return con.execute(statement, values).fetchall()
 
 
@@ -77,6 +78,7 @@ def server():
         schema = (ROOT / 'app/schema.sql').read_text()
         schema = re.sub(r'CREATE TABLE IF NOT EXISTS users \(.*?\);\n', '', schema, flags=re.S)
         schema = schema.replace('    account_id INTEGER REFERENCES users(id),\n', '')
+        schema = schema.replace('    reply_to INTEGER REFERENCES posts(id) ON DELETE SET NULL,\n', '')
         with sqlite3.connect(directory / 'forum.sqlite') as con:
             con.executescript(schema)
             con.execute("INSERT INTO boards VALUES ('gen', 'General', '')")
@@ -111,12 +113,18 @@ def run():
         assert 'Server time:' in home and re.search(r'PHP \d+\.\d+', home) and re.search(r'SQLite \d+\.\d+', home)
         assert 'All times are UTC' not in home
         assert 'Legacy body' in alice.text('/gen/1')[1]
-        for route, expected in [('/gen/', 'Board index / General'), ('/gen/1', 'Board index / General / Thread 1'), ('/search.php?board=gen', 'Board index / General / Search'), ('/books/', 'Board index / Books'), ('/film/', 'Board index / Film & TV')]:
+        for route, expected in [('/gen/', 'Board index / gen'), ('/gen/1', 'Board index / gen / Legacy thread'), ('/search.php?board=gen', 'Board index / gen / Search'), ('/books/', 'Board index / books'), ('/film/', 'Board index / film')]:
             status, page, _, _ = alice.text(route)
             assert status == 200
             crumb = re.search(r'<div class="breadcrumb">(.*?)</div>', page).group(1)
             assert html_lib.unescape(re.sub('<[^>]+>', '', crumb)) == expected
-        assert '/books/' in home and '/film/' in home
+        board_slugs = ['gen', 'intro', 'life', 'news', 'tech', 'art', 'music', 'games', 'books', 'film', 'food', 'sport', 'travel', 'retro', 'diy', 'space', 'linux', 'garden']
+        assert len(sql(directory, 'SELECT slug FROM boards')) == len(board_slugs)
+        for slug in board_slugs:
+            assert '/'+slug+'/' in home
+            assert alice.text('/'+slug+'/')[0] == 200
+        assert alice.text('/technology/')[0] == 404
+
 
         assert alice.text('/account.php')[3].endswith('/login.php')
         token = alice.token('/register.php')
@@ -182,6 +190,64 @@ def run():
         assert recent_html.count('<li>') == 2  # One latest post per thread, no duplicate activity rows.
         print('PASS case-insensitive unique usernames, registered/guest post ownership and author rendering')
 
+        sql(directory, 'DELETE FROM rate_limits')
+        token = alice.token('/gen/1')
+        preview = alice.text('/gen/1?reply=3')[1]
+        assert 'name="reply_to" value="3"' in preview and 'Other_User wrote:' in preview
+        assert 'Reply without quoting' in preview
+        assert 'name="reply_to"' not in alice.text('/gen/1')[1]
+        assert '?reply=' not in guest.text('/gen/1')[1]
+        assert alice.text('/gen/1?reply=999999')[0] == 404
+        fields = dict(csrf=token, board='gen', thread=1, reply_to=3, body='A direct reply')
+        status, page, _, url = alice.text('/post.php', fields)
+        assert status == 200
+        reply_id = sql(directory, 'SELECT id FROM posts ORDER BY id DESC LIMIT 1')[0][0]
+        assert sql(directory, 'SELECT reply_to FROM posts WHERE id=?', (reply_id,)) == [(3,)]
+        article = page.split(f'id="p{reply_id}"', 1)[1].split('</article>', 1)[0]
+        assert '<blockquote class="notice"' in article and 'Other_User wrote:' in article
+        assert article.index('Account-owned post') < article.index('A direct reply')
+        assert '/gen/1#p3' in article
+        status, page, _, _ = alice.text('/post.php', dict(fields, body=''))
+        assert status == 422 and 'name="reply_to" value="3"' in page
+        # The server resolves the original post itself and escapes its text.
+        sql(directory, 'UPDATE posts SET body=? WHERE id=3', ('Original <script>alert(1)</script>\nsecond line',))
+        page = alice.text('/gen/1')[1]
+        assert '<script>alert(1)</script>' not in page and '&lt;script&gt;' in page
+        assert 'second line' in page
+        before = sql(directory, 'SELECT COUNT(*) FROM posts')[0][0]
+        other_post = sql(directory, 'SELECT id FROM posts WHERE thread_id<>1 LIMIT 1')[0][0]
+        for bad in ['999999', str(other_post), '-1', 'abc']:
+            assert alice.text('/post.php', dict(fields, reply_to=bad))[0] == 422
+        assert alice.text('/post.php', dict(csrf=token, board='gen', subject='Invalid reference', body='Message', reply_to=3))[0] == 422
+        assert sql(directory, 'SELECT COUNT(*) FROM posts')[0][0] == before
+        assert guest.text('/post.php', fields)[0] == 403
+        sql(directory, 'UPDATE threads SET locked=1 WHERE id=1')
+        assert alice.text('/post.php', fields)[0] == 422
+        assert '?reply=' not in alice.text('/gen/1')[1]
+        sql(directory, 'UPDATE threads SET locked=0 WHERE id=1')
+        # Replies to replies quote only the selected message, avoiding recursive nesting.
+        status, page, _, _ = alice.text('/post.php', dict(fields, reply_to=reply_id, body='Reply to the reply'))
+        assert status == 200
+        nested_id = sql(directory, 'SELECT MAX(id) FROM posts')[0][0]
+        article = page.split(f'id="p{nested_id}"', 1)[1].split('</article>', 1)[0]
+        assert article.count('<blockquote') == 1 and 'A direct reply' in article and 'Other_User wrote:' not in article
+        sql(directory, 'DELETE FROM posts WHERE id=?', (reply_id,))
+        assert sql(directory, 'SELECT reply_to FROM posts WHERE id=?', (nested_id,)) == [(None,)]
+        article = alice.text('/gen/1')[1].split(f'id="p{nested_id}"', 1)[1].split('</article>', 1)[0]
+        assert '<blockquote' not in article and 'Reply to the reply' in article
+        # Image-only originals retain a useful attachment link in the quote.
+        status, _, _, url = alice.text('/post.php', dict(csrf=token, board='art', subject='Image original', body=''), image_png())
+        assert status == 200
+        image_thread = sql(directory, 'SELECT MAX(id) FROM threads')[0][0]
+        image_post = sql(directory, 'SELECT MAX(id) FROM posts')[0][0]
+        status, page, _, _ = alice.text('/post.php', dict(csrf=token, board='art', thread=image_thread, reply_to=image_post, body='Image response'))
+        assert status == 200
+        image_reply = sql(directory, 'SELECT MAX(id) FROM posts')[0][0]
+        article = page.split(f'id="p{image_reply}"', 1)[1].split('</article>', 1)[0]
+        assert 'Attachment:' in article and '/image.php?file=' in article
+        sql(directory, 'DELETE FROM rate_limits')
+        print('PASS quoted replies, previews, escaping, same-thread validation, login/lock gates, attachments and deleted originals')
+
         assert '<svg' in alice.text(f'/avatar.php?id={user_id}')[1]
         assert alice.text('/avatar.php?id=99999')[0] == 404
         assert alice.text('/avatar.php?id=../etc/passwd')[0] == 404
@@ -238,16 +304,17 @@ def run():
             assert fresh.text('/login.php', dict(csrf=token, username='Test_User', password='wrong'))[0] == 422
         assert 'too fast' in fresh.text('/login.php', dict(csrf=token, username='Test_User', password=password))[1]
         print('PASS account revocation and login throttling')
-        for slug in ['books', 'film']:
+        for slug in [s for s in board_slugs if s not in ['gen', 'art']]:
+            sql(directory, 'DELETE FROM rate_limits')
             status, _, _, url = fresh.text('/post.php', dict(csrf=fresh.token('/'+slug+'/'), board=slug, subject='New board check', body='Board posting check'))
             assert status == 200 and '/'+slug+'/' in url
             assert sql(directory, 'SELECT COUNT(*) FROM threads WHERE board_slug=?', (slug,))[0][0] == 1
-        print('PASS Books and Film & TV routes, posting and single-separator breadcrumbs')
+        print('PASS expanded boards, posting, short slugs and titled single-separator breadcrumbs')
         sql(directory, 'DELETE FROM posts')
         sql(directory, 'DELETE FROM threads')
         sql(directory, 'DELETE FROM users')
         empty_home = fresh.text('/')[1]
-        assert empty_home.count('class="no-posts"') == 7
+        assert empty_home.count('class="no-posts"') == len(board_slugs)
         assert '<p>No posts.</p>' in empty_home
         assert 'Newest member:' not in empty_home
         assert fresh.text('/gen/')[0] == 200
