@@ -57,7 +57,37 @@ Seed the lab first so boolean-based tests have matching rows. Search does not re
 
 ## Hosting
 
-Use PHP-FPM or Apache with the **document root pointing to `public/`**, not the repository root. Apache needs `mod_rewrite` and `AllowOverride FileInfo Options` for the included `.htaccess`. For nginx, use a normal PHP-FPM configuration and route missing paths to the front controller:
+Use PHP-FPM or Apache with the **document root pointing to `public/`**, not the repository root. Apache uses `public/index.php`; `public/router.php` is only for PHP's built-in development server.
+
+### Apache on Debian/Ubuntu
+
+The repository includes [`deploy/apache/enumeration.conf`](deploy/apache/enumeration.conf) and [`public/.htaccess`](public/.htaccess). The site configuration assumes the checkout is at `/var/www/html`. Change both paths in the configuration if your checkout is elsewhere. PHP 8.2+ must already be enabled in Apache, with the extensions listed under **Run locally** installed for that same PHP version.
+
+For a dedicated server currently using the default `000-default` site:
+
+```sh
+cd /var/www/html
+git pull --ff-only
+sudo install -m 644 deploy/apache/enumeration.conf /etc/apache2/sites-available/enumeration.conf
+sudo a2enmod rewrite
+sudo a2ensite enumeration
+sudo a2dissite 000-default
+sudo apache2ctl configtest && sudo systemctl reload apache2
+```
+
+If this server hosts other sites, merge the `DocumentRoot` and `<Directory>` settings into the virtual host serving this forum instead of disabling another site's configuration. The configuration permits the included `.htaccess` rules, which route `/gen`, `/gen/`, and thread URLs to `index.php` while serving existing files normally. Keep the hidden `.htaccess` file when copying the site.
+
+The default database is `/var/www/html/data/forum.sqlite` and is created automatically on the first request. Apache needs write access to the entire data directory for SQLite journal files and uploads. For a new installation:
+
+```sh
+sudo install -d -o www-data -g www-data -m 700 /var/www/html/data
+```
+
+Existing database and upload files must also be writable by Apache's user (`www-data` on Debian/Ubuntu). A `could not find driver` error means PHP is missing `pdo_sqlite`, not that the database file needs to be created manually.
+
+### nginx
+
+Use a normal PHP-FPM configuration and route missing paths to the front controller:
 
 ```nginx
 location / { try_files $uri $uri/ /index.php?$query_string; }
