@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 page_header('Admin'); ?>
-<div class="page-heading"><div><h1>Admin</h1></div><?php if (is_admin()): ?><form method="post"><?php csrf_field(); ?><input type="hidden" name="action" value="logout"><button>Sign out</button></form><?php endif; ?></div>
+<div class="breadcrumb"><a href="/">Board index</a> / Moderator panel</div><div class="page-heading"><div><h1>Moderator panel</h1><p>Manage threads and posts across the boards.</p></div><?php if (is_admin()): ?><form method="post"><?php csrf_field(); ?><input type="hidden" name="action" value="logout"><button>Sign out</button></form><?php endif; ?></div>
 <?php if ($error): ?><p class="notice error" role="alert"><?= e($error) ?></p><?php endif; ?>
 <?php if (!is_admin()): ?><section class="panel login"><h2>Moderator sign-in</h2><?php if (admin_hash() === ''): ?><p>Moderator access has not been configured. Contact the site operator.</p><?php else: ?><form method="post"><?php csrf_field(); ?><input type="hidden" name="action" value="login"><label for="password">Password</label><input id="password" type="password" name="password" required autocomplete="current-password"><button>Sign in</button></form><?php endif; ?></section><?php page_footer(); exit; endif; ?>
 <?php if (isset($_SESSION['flash'])): ?><p class="notice" role="status"><?= e($_SESSION['flash']) ?></p><?php unset($_SESSION['flash']); endif;
