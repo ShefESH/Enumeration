@@ -23,6 +23,9 @@ function db(): PDO {
     if (!in_array('user_id', $columns, true)) {
         $db->exec('ALTER TABLE posts ADD COLUMN user_id INTEGER REFERENCES anonymous_users(id)');
     }
+    if (!in_array('account_id', $columns, true)) {
+        $db->exec('ALTER TABLE posts ADD COLUMN account_id INTEGER REFERENCES users(id)');
+    }
     $db->exec("INSERT OR IGNORE INTO anonymous_users (token_hash) SELECT 'legacy:' || id FROM posts WHERE user_id IS NULL");
     $db->exec("UPDATE posts SET user_id=(SELECT id FROM anonymous_users WHERE token_hash='legacy:' || posts.id) WHERE user_id IS NULL");
     $insert = $db->prepare('INSERT OR IGNORE INTO boards (slug, title, description) VALUES (?, ?, ?)');

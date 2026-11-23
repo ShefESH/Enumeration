@@ -1,10 +1,10 @@
 # Enumeration
 
-A simple anonymous PHP bulletin board. A pale page, compact Arial text, inline post metadata, left-aligned thumbnails, and indented replies sized to their content. Exactly four CSS colours: pale blue, lavender, dark blue, and black. No frontend dependencies.
+A PHP bulletin board with a classic forum layout, guest posting, optional username/password accounts, and avatars. No frontend dependencies.
 
 - `/gen/`, `/tech/`, `/art/`, `/music/`, `/games/` boards.
 - Anonymous browser IDs and message IDs, displayed with at least eight digits. Visitor IDs use an HttpOnly cookie and require no account.
-- Anonymous threads and replies, with the first **five posts including the opening post** on board pages. `/gen/123` shows the entire conversation.
+- Board pages list threads with their author, reply count and latest post. `/gen/123` shows the entire conversation; replying requires login.
 - Ten threads per board page, ordered by pinned status and latest activity.
 - Optional image attachments, image-only replies, and subject search.
 - `/admin.php` for password-protected moderation: pin, close/reopen, remove replies, and delete threads and their images.
@@ -69,8 +69,8 @@ Configure PHP `upload_max_filesize=4M` and `post_max_size=6M`, a writable sessio
 - Posting: 12 attempts per minute per source IP. Admin login: 5 attempts per five minutes per source IP. These limits use `REMOTE_ADDR`, not client-supplied proxy headers.
 - Session-based CSRF protection on all mutations; escaped text; strict image serving; restrictive CSP. Admin sessions expire after two hours and are invalidated when the password changes.
 - Removing the opening post requires deleting its thread. Deletions require an explicit checkbox, and remove associated stored images. Closing a thread prevents new replies.
-- Public posts contain no usernames or stored IP addresses. Posts display a stable browser ID; clearing the visitor cookie creates a new identity. Existing posts are assigned legacy IDs during migration because their original visitors were not recorded. Rate limits temporarily retain hashed IP-derived keys. The web server can still log visitor addresses; this is not an anonymity service.
-- Small-community scope: no accounts, notifications, private messaging, automatic content moderation, or upload storage quota. Moderators are responsible for keeping uploaded content suitable for everyone.
+- Registered posts show the account username and avatar. Guest posts contain no usernames or stored IP addresses. Posts display a stable browser ID; clearing the visitor cookie creates a new identity. Existing posts are assigned legacy IDs during migration because their original visitors were not recorded. Rate limits temporarily retain hashed IP-derived keys. The web server can still log visitor addresses; this is not an anonymity service.
+- Small-community scope: no email/password recovery, notifications, private messaging, automatic content moderation, or upload storage quota. Moderators are responsible for keeping uploaded content suitable for everyone.
 
 ## Checks
 
@@ -79,4 +79,32 @@ find app public bin -name '*.php' -exec php -l {} \;
 python3 tests/integration.py
 ```
 
-The integration suite runs normal and lab servers against temporary storage and exercises posting, five-post previews, search, injection behaviour, uploads, CSRF, moderation, rate limiting, and private-file routing. It does not touch your development database.
+The integration suite runs normal and lab servers against temporary storage and exercises posting, topic listings, search, injection behaviour, uploads, CSRF, moderation, rate limiting, and private-file routing. It does not touch your development database.
+
+## User accounts and avatars
+
+Register at `/register.php` with a username and password, then sign in at `/login.php`. Usernames are case-insensitive and allow 3–24 ASCII letters, numbers, or underscores. Passwords are preserved exactly (including spaces), require 10–72 bytes, and are stored with PHP's `password_hash()`. Login and registration are rate limited and CSRF protected. User sessions expire after 24 hours; accounts do not grant moderator access.
+
+Guests can start threads; replying requires a registered account. The reply endpoint rejects unauthenticated submissions before processing uploads. Login and registration links on a thread return to its reply form after sign-in. Existing posts retain their anonymous identities; only new posts made while logged in are linked to an account. The schema upgrade is automatic and preserves existing threads and attachments.
+
+At `/account.php`, upload or remove an avatar. Images use the existing 4 MB / 16-megapixel limits, are decoded and cropped to 96 × 96 PNGs, and are stored outside the public directory. Accounts without an upload use a generated identicon. Replacing or removing an avatar removes the old file.
+
+The footer shows the current server time (including its timezone) at page render, PHP version, and the running SQLite version. Post timestamps remain UTC.
+
+### Random users
+
+```sh
+# Optional: create 10 random accounts, without adding threads or posts.
+php bin/seed-users.php 10
+
+# Use isolated storage when creating test accounts.
+FORUM_DATA_DIR=/tmp/enumeration-test-users php bin/seed-users.php 5
+```
+
+The count must be 1–100 (default 10). Each run adds unique random usernames and passwords; it does not change existing users. Credentials are printed once as CSV to stdout and should be kept private. Only hashes are stored in the database. Seeded users have default identicons and can log in normally.
+
+Account checks use temporary storage:
+
+```sh
+python3 tests/accounts.py
+```

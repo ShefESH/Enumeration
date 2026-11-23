@@ -61,7 +61,7 @@ if ($selected) {
     if (!$thread) { echo '<p class="notice">That thread no longer exists.</p>'; }
     else { ?>
     <p><a href="/admin.php">« All threads</a> | <a href="/<?= e($thread['board_slug']) ?>/<?= $selected ?>">View public thread</a></p><section class="panel"><h2><?= e($thread['subject']) ?></h2>
-    <?php $posts = query('SELECT * FROM posts WHERE thread_id=? ORDER BY id', [$selected])->fetchAll(); foreach ($posts as $i => $post): ?><div class="admin-post"><?php render_post($post, $thread, $i === 0); if ($i > 0): ?><form method="post"><?php csrf_field(); ?><input type="hidden" name="action" value="delete_post"><input type="hidden" name="id" value="<?= (int)$post['id'] ?>"><input type="hidden" name="return_thread" value="<?= $selected ?>"><label><input type="checkbox" name="confirm" value="yes" required> Remove this post permanently</label> <button class="danger">Delete post</button></form><?php endif; ?></div><?php endforeach; ?></section><?php }
+    <?php $posts = thread_posts($selected); foreach ($posts as $i => $post): ?><div class="admin-post"><?php render_post($post, $thread, $i === 0); if ($i > 0): ?><form method="post"><?php csrf_field(); ?><input type="hidden" name="action" value="delete_post"><input type="hidden" name="id" value="<?= (int)$post['id'] ?>"><input type="hidden" name="return_thread" value="<?= $selected ?>"><label><input type="checkbox" name="confirm" value="yes" required> Remove this post permanently</label> <button class="danger">Delete post</button></form><?php endif; ?></div><?php endforeach; ?></section><?php }
 } else {
     $page = max(1, (int)input('page', $_GET));
     $pages = max(1, (int)ceil((int)query('SELECT COUNT(*) FROM threads')->fetchColumn() / 30)); $page = min($page, $pages);

@@ -14,10 +14,18 @@ CREATE TABLE IF NOT EXISTS anonymous_users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     token_hash TEXT NOT NULL UNIQUE
 );
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL COLLATE NOCASE UNIQUE,
+    password_hash TEXT NOT NULL,
+    avatar TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now'))
+);
 CREATE TABLE IF NOT EXISTS posts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     thread_id INTEGER NOT NULL REFERENCES threads(id) ON DELETE CASCADE,
     user_id INTEGER REFERENCES anonymous_users(id),
+    account_id INTEGER REFERENCES users(id),
     body TEXT NOT NULL,
     image TEXT,
     image_name TEXT,

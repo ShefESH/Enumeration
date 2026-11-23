@@ -8,6 +8,14 @@ if ($threadId !== '') {
     if (!ctype_digit($threadId)) fail(400, 'Invalid thread', 'Choose a conversation from the board.');
     $thread = thread((int)$threadId, $slug);
 }
+$account = current_user();
+if ($thread && !$account) {
+    http_response_code(403);
+    page_header('Log in to reply', $slug);
+    post_form($slug, $thread);
+    page_footer();
+    exit;
+}
 try {
     check_csrf();
     $subject = input('subject', $_POST); $body = input('body', $_POST);
@@ -27,7 +35,7 @@ try {
         query('INSERT INTO threads (board_slug, subject) VALUES (?, ?)', [$slug, $subject]);
         $threadId = (int)db()->lastInsertId();
     }
-    query('INSERT INTO posts (thread_id, user_id, body, image, image_name, image_width, image_height) VALUES (?, ?, ?, ?, ?, ?, ?)', [(int)$threadId, $userId, $body, ...($image ?? [null, null, null, null])]);
+    query('INSERT INTO posts (thread_id, user_id, account_id, body, image, image_name, image_width, image_height) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [(int)$threadId, $userId, $account['id'] ?? null, $body, ...($image ?? [null, null, null, null])]);
     $postId = (int)db()->lastInsertId();
     query("UPDATE threads SET bumped_at=strftime('%Y-%m-%d %H:%M:%S', 'now') WHERE id=?", [(int)$threadId]);
     db()->exec('COMMIT');
@@ -39,7 +47,7 @@ try {
     $expected = $error instanceof RuntimeException && !$error instanceof PDOException;
     if (!$expected) error_log((string)$error);
     http_response_code($expected ? 422 : 500);
-    page_header('Your post needs a little attention', $slug);
+    page_header('Post not saved', $slug);
     post_form($slug, $thread, $expected ? $error->getMessage() : 'Your post could not be saved. Please try again.', ['subject' => $subject ?? '', 'body' => $body ?? '']);
     page_footer();
 }
