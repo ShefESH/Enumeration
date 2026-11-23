@@ -1,6 +1,6 @@
 # Enumeration
 
-A simple anonymous PHP bulletin board. Hard rectangular blocks, Times New Roman, readable text, and exactly four CSS colours: black, white, grey, and navy. No frontend dependencies.
+A simple anonymous PHP bulletin board. A pale page, compact Arial text, inline post metadata, left-aligned thumbnails, and indented replies sized to their content. Exactly four CSS colours: pale blue, lavender, dark blue, and black. No frontend dependencies.
 
 - `/gen/`, `/tech/`, `/art/`, `/music/`, `/games/` boards.
 - Anonymous threads and replies, with the first **five posts including the opening post** on board pages. `/gen/123` shows the entire conversation.
