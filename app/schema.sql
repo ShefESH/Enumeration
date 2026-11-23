@@ -1,41 +1,47 @@
 CREATE TABLE IF NOT EXISTS boards (
-    slug TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT NOT NULL
-);
+    slug VARCHAR(24) PRIMARY KEY, title VARCHAR(100) NOT NULL, description TEXT NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE IF NOT EXISTS threads (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    board_slug TEXT NOT NULL REFERENCES boards(slug),
-    subject TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now')),
-    bumped_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now')),
-    locked INTEGER NOT NULL DEFAULT 0,
-    pinned INTEGER NOT NULL DEFAULT 0
-);
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    board_slug VARCHAR(24) NOT NULL,
+    subject VARCHAR(100) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    bumped_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    locked TINYINT NOT NULL DEFAULT 0,
+    pinned TINYINT NOT NULL DEFAULT 0,
+    INDEX threads_board (board_slug, pinned, bumped_at),
+    FOREIGN KEY (board_slug) REFERENCES boards(slug)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE IF NOT EXISTS anonymous_users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    token_hash TEXT NOT NULL UNIQUE
-);
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    token_hash VARCHAR(80) CHARACTER SET ascii COLLATE ascii_bin NOT NULL UNIQUE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT NOT NULL COLLATE NOCASE UNIQUE,
-    password_hash TEXT NOT NULL,
-    avatar TEXT,
-    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now'))
-);
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(24) CHARACTER SET ascii COLLATE ascii_general_ci NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    avatar VARCHAR(64),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE IF NOT EXISTS posts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    thread_id INTEGER NOT NULL REFERENCES threads(id) ON DELETE CASCADE,
-    user_id INTEGER REFERENCES anonymous_users(id),
-    account_id INTEGER REFERENCES users(id),
-    reply_to INTEGER REFERENCES posts(id) ON DELETE SET NULL,
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    thread_id INT UNSIGNED NOT NULL,
+    user_id INT UNSIGNED,
+    account_id INT UNSIGNED,
+    reply_to INT UNSIGNED,
     body TEXT NOT NULL,
-    image TEXT,
-    image_name TEXT,
-    image_width INTEGER,
-    image_height INTEGER,
-    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now'))
-);
-CREATE INDEX IF NOT EXISTS posts_thread ON posts(thread_id, id);
-CREATE INDEX IF NOT EXISTS threads_board ON threads(board_slug, pinned, bumped_at);
+    image VARCHAR(64),
+    image_name VARCHAR(120),
+    image_width INT,
+    image_height INT,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX posts_thread (thread_id, id),
+    FOREIGN KEY (thread_id) REFERENCES threads(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES anonymous_users(id),
+    FOREIGN KEY (account_id) REFERENCES users(id),
+    FOREIGN KEY (reply_to) REFERENCES posts(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 CREATE TABLE IF NOT EXISTS rate_limits (
-    key TEXT PRIMARY KEY, hits INTEGER NOT NULL, expires INTEGER NOT NULL
-);
+    `key` CHAR(64) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
+    hits INT UNSIGNED NOT NULL, expires BIGINT NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -15,8 +15,8 @@ function anonymous_user_id(): int {
 function rate_limit(string $scope, int $max, int $window): void {
     $key = hash('sha256', $scope . ':' . ($_SERVER['REMOTE_ADDR'] ?? 'local'));
     query('DELETE FROM rate_limits WHERE expires < ?', [time()]);
-    query('INSERT INTO rate_limits (key, hits, expires) VALUES (?, 1, ?) ON CONFLICT(key) DO UPDATE SET hits=hits+1', [$key, time() + $window]);
-    if ((int)query('SELECT hits FROM rate_limits WHERE key=?', [$key])->fetchColumn() > $max) {
+    query('INSERT INTO rate_limits (`key`, hits, expires) VALUES (?, 1, ?) ON DUPLICATE KEY UPDATE hits=hits+1', [$key, time() + $window]);
+    if ((int)query('SELECT hits FROM rate_limits WHERE `key`=?', [$key])->fetchColumn() > $max) {
         throw new RuntimeException('A little too fast. Please wait a few minutes before trying again.');
     }
 }

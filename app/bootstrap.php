@@ -29,29 +29,39 @@ const BOARD_CATEGORIES = [
 ];
 function data_dir(): string { return getenv('FORUM_DATA_DIR') ?: ROOT . '/data'; }
 function lab_mode(): bool { return getenv('FORUM_LAB_MODE') === '1'; }
+function config(string $key, string $default = ''): string {
+    $value = getenv($key);
+    if ($value !== false) return $value;
+    static $settings;
+    if ($settings === null) {
+        $path = getenv('FORUM_CONFIG') ?: ROOT . '/config.php';
+        $settings = is_file($path) ? require $path : [];
+        if (!is_array($settings)) throw new RuntimeException('Forum config must return an array.');
+    }
+    return (string)($settings[$key] ?? $default);
+}
 function db(): PDO {
     static $db;
     if ($db) return $db;
     if (!is_dir(data_dir()) && !mkdir(data_dir(), 0700, true)) throw new RuntimeException('Storage unavailable.');
-    $db = new PDO('sqlite:' . data_dir() . '/forum.sqlite', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
-    $db->exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL;');
-    $db->exec(file_get_contents(ROOT . '/app/schema.sql'));
-    // Upgrade existing databases without dropping posts or attachments.
-    $columns = $db->query('PRAGMA table_info(posts)')->fetchAll(PDO::FETCH_COLUMN, 1);
-    if (!in_array('user_id', $columns, true)) {
-        $db->exec('ALTER TABLE posts ADD COLUMN user_id INTEGER REFERENCES anonymous_users(id)');
-    }
-    if (!in_array('account_id', $columns, true)) {
-        $db->exec('ALTER TABLE posts ADD COLUMN account_id INTEGER REFERENCES users(id)');
-    }
-    if (!in_array('reply_to', $columns, true)) {
-        $db->exec('ALTER TABLE posts ADD COLUMN reply_to INTEGER REFERENCES posts(id) ON DELETE SET NULL');
-    }
-    $db->exec("INSERT OR IGNORE INTO anonymous_users (token_hash) SELECT 'legacy:' || id FROM posts WHERE user_id IS NULL");
-    $db->exec("UPDATE posts SET user_id=(SELECT id FROM anonymous_users WHERE token_hash='legacy:' || posts.id) WHERE user_id IS NULL");
-    $insert = $db->prepare('INSERT OR IGNORE INTO boards (slug, title, description) VALUES (?, ?, ?)');
-    foreach (BOARDS as $slug => [$title, $description]) $insert->execute([$slug, $title, $description]);
+    $dsn = config('FORUM_DB_DSN', 'mysql:host=127.0.0.1;port=3306;dbname=enumeration;charset=utf8mb4');
+    if (!str_starts_with($dsn, 'mysql:')) throw new RuntimeException('FORUM_DB_DSN must use MySQL.');
+    $db = new PDO($dsn, config('FORUM_DB_USER', 'forum'), config('FORUM_DB_PASSWORD'), [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false,
+        PDO::MYSQL_ATTR_MULTI_STATEMENTS => false,
+    ]);
+    $db->exec("SET time_zone = '+00:00'");
     return $db;
+}
+function initialize_database(): void {
+    // DDL is a CLI installation step; web requests only need CRUD permissions.
+    foreach (explode(';', file_get_contents(ROOT . '/app/schema.sql')) as $sql) {
+        if (trim($sql) !== '') db()->exec($sql);
+    }
+    $insert = db()->prepare('INSERT INTO boards (slug, title, description) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE title=boards.title');
+    foreach (BOARDS as $slug => [$title, $description]) $insert->execute([$slug, $title, $description]);
 }
 function query(string $sql, array $params = []): PDOStatement {
     $statement = db()->prepare($sql); $statement->execute($params); return $statement;

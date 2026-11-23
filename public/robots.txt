@@ -1,0 +1,6 @@
+User-agent: *
+Disallow: /backup/
+Disallow: /admin/
+Disallow: /dev/
+Disallow: /staging/
+Disallow: /private/

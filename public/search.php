@@ -1,7 +1,9 @@
 <?php
 require_once __DIR__ . '/../app/view.php';
 $slug = input('board', $_GET) ?: 'gen'; board($slug);
-$q = mb_substr(input('q', $_GET), 0, 120); $results = []; $error = '';
+// Allow automated SQLMap payloads in the deliberately vulnerable challenge mode.
+$rawQuery = isset($_GET['q']) && is_string($_GET['q']) ? $_GET['q'] : '';
+$q = mb_substr(lab_mode() ? $rawQuery : trim($rawQuery), 0, lab_mode() ? 4096 : 120); $results = []; $error = '';
 if ($q !== '') {
     try {
         if (lab_mode()) {

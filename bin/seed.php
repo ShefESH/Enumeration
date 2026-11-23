@@ -32,7 +32,7 @@ foreach ($threads as $index => [$slug, $subject, $messages]) {
     query('INSERT INTO threads (board_slug, subject, created_at, bumped_at, pinned) VALUES (?, ?, ?, ?, ?)', [$slug, $subject, $stamp, $stamp, $index === 1 ? 1 : 0]);
     $id = (int)db()->lastInsertId();
     foreach ($messages as $i => $body) {
-        query('INSERT OR IGNORE INTO anonymous_users (token_hash) VALUES (?)', ['demo:' . $i]);
+        query('INSERT INTO anonymous_users (token_hash) VALUES (?) ON DUPLICATE KEY UPDATE token_hash=anonymous_users.token_hash', ['demo:' . $i]);
         $user = query('SELECT id FROM anonymous_users WHERE token_hash=?', ['demo:' . $i])->fetchColumn();
         query('INSERT INTO posts (thread_id, user_id, body, created_at) VALUES (?, ?, ?, ?)', [$id, $user, $body, gmdate('Y-m-d H:i:s', strtotime($stamp . ' UTC') + $i * 120)]);
     }

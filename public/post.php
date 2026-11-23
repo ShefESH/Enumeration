@@ -31,10 +31,10 @@ try {
     $image = save_image();
     if ($body === '' && !$image) throw new RuntimeException('Add a message or an image before posting.');
     $userId = anonymous_user_id();
-    db()->exec('BEGIN IMMEDIATE');
+    db()->beginTransaction();
     // Recheck under the write lock so moderation and replies cannot race.
     if ($thread) {
-        $fresh = query('SELECT locked FROM threads WHERE id=?', [$thread['id']])->fetch();
+        $fresh = query('SELECT locked FROM threads WHERE id=? FOR UPDATE', [$thread['id']])->fetch();
         if (!$fresh || $fresh['locked']) throw new RuntimeException('This conversation is no longer open to replies.');
         if ($replyTo) $replyTo = reply_target($replyId, (int)$thread['id']);
     } else {
@@ -43,12 +43,11 @@ try {
     }
     query('INSERT INTO posts (thread_id, user_id, account_id, reply_to, body, image, image_name, image_width, image_height) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [(int)$threadId, $userId, $account['id'] ?? null, $replyTo['id'] ?? null, $body, ...($image ?? [null, null, null, null])]);
     $postId = (int)db()->lastInsertId();
-    query("UPDATE threads SET bumped_at=strftime('%Y-%m-%d %H:%M:%S', 'now') WHERE id=?", [(int)$threadId]);
-    db()->exec('COMMIT');
+    query("UPDATE threads SET bumped_at=CURRENT_TIMESTAMP WHERE id=?", [(int)$threadId]);
+    db()->commit();
     redirect('/' . $slug . '/' . $threadId . '#p' . $postId);
 } catch (Throwable $error) {
-    // PDO::inTransaction does not detect transactions begun with SQLite BEGIN IMMEDIATE.
-    try { db()->exec('ROLLBACK'); } catch (PDOException) {}
+    if (db()->inTransaction()) db()->rollBack();
     if ($image) remove_images([$image[0]]);
     $expected = $error instanceof RuntimeException && !$error instanceof PDOException;
     if (!$expected) error_log((string)$error);

@@ -19,16 +19,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         rate_limit('avatar', 10, 300);
         if ($action === 'avatar') $avatar = save_avatar();
         // Read the old filename while locked so concurrent uploads do not leak files.
-        db()->exec('BEGIN IMMEDIATE');
-        $old = query('SELECT avatar FROM users WHERE id=?', [$user['id']])->fetchColumn();
+        db()->beginTransaction();
+        $old = query('SELECT avatar FROM users WHERE id=? FOR UPDATE', [$user['id']])->fetchColumn();
         query('UPDATE users SET avatar=? WHERE id=?', [$avatar, $user['id']]);
-        db()->exec('COMMIT');
+        db()->commit();
         $avatar = null;
         remove_images([$old]);
         $_SESSION['account_flash'] = 'Avatar updated.';
         redirect('/account.php');
     } catch (Throwable $exception) {
-        try { db()->exec('ROLLBACK'); } catch (PDOException) {}
+        if (db()->inTransaction()) db()->rollBack();
         if ($avatar) remove_images([$avatar]);
         $expected = $exception instanceof RuntimeException && !$exception instanceof PDOException;
         if (!$expected) error_log((string)$exception);

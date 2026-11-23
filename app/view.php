@@ -13,9 +13,9 @@ function page_header(string $title, string $active = ''): void {
 <main id="content"><?php
 }
 function page_footer(): void {
-    try { $databaseVersion = (string)query('SELECT sqlite_version()')->fetchColumn(); }
+    try { $databaseVersion = (string)query('SELECT VERSION()')->fetchColumn(); }
     catch (Throwable) { $databaseVersion = 'unavailable'; }
-    ?></main><footer class="site-footer"><p><span class="server-info"><span>Server time: <time datetime="<?= e(date('c')) ?>"><?= e(date('Y-m-d H:i:s T')) ?></time></span><span>PHP <?= e(PHP_VERSION) ?></span><span>SQLite <?= e($databaseVersion) ?></span></span><br><a class="admin-link" href="/admin.php">Admin panel</a></p></footer></div></body></html><?php }
+    ?></main><footer class="site-footer"><p><span class="server-info"><span>Server time: <time datetime="<?= e(date('c')) ?>"><?= e(date('Y-m-d H:i:s T')) ?></time></span><span>PHP <?= e(PHP_VERSION) ?></span><span>MySQL <?= e($databaseVersion) ?></span></span><br><a class="admin-link" href="/admin.php">Admin panel</a></p></footer></div></body></html><?php }
 function render_body(string $body): string {
     $lines = explode("\n", $body);
     return implode('<br>', array_map(fn($line) => str_starts_with($line, '>') ? '<span class="quote">' . e($line) . '</span>' : e($line), $lines));

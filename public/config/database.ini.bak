@@ -1,0 +1,6 @@
+# Synthetic lab decoy. These are not live credentials.
+[database]
+host = retired-db.invalid
+database = forum_archive
+username = example_user
+password = NOT_A_REAL_PASSWORD

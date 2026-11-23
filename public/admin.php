@@ -20,30 +20,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $id = (int)input('id', $_POST);
         if ($id < 1) throw new RuntimeException('Choose a thread or post first.');
         $images = [];
-        db()->exec('BEGIN IMMEDIATE');
+        db()->beginTransaction();
         if ($action === 'lock' || $action === 'pin') {
             $column = $action === 'lock' ? 'locked' : 'pinned';
             query("UPDATE threads SET $column = 1 - $column WHERE id=?", [$id]);
         } elseif ($action === 'delete_thread') {
             if (input('confirm', $_POST) !== 'yes') throw new RuntimeException('Tick the confirmation box to delete this thread.');
+            query('SELECT id FROM threads WHERE id=? FOR UPDATE', [$id]);
             $images = query('SELECT image FROM posts WHERE thread_id=?', [$id])->fetchAll(PDO::FETCH_COLUMN);
             query('DELETE FROM threads WHERE id=?', [$id]);
         } elseif ($action === 'delete_post') {
             if (input('confirm', $_POST) !== 'yes') throw new RuntimeException('Tick the confirmation box to delete this post.');
             $post = query('SELECT * FROM posts WHERE id=?', [$id])->fetch();
             if (!$post) throw new RuntimeException('That post has already been removed.');
+            query('SELECT id FROM threads WHERE id=? FOR UPDATE', [$post['thread_id']]);
             $first = (int)query('SELECT MIN(id) FROM posts WHERE thread_id=?', [$post['thread_id']])->fetchColumn();
             if ($first === $id) throw new RuntimeException('The opening post belongs to the thread. Delete the whole thread to remove it.');
             $images = [$post['image']];
             query('DELETE FROM posts WHERE id=?', [$id]);
         } else { throw new RuntimeException('Unknown moderation action.'); }
-        db()->exec('COMMIT');
+        db()->commit();
         remove_images($images);
         $_SESSION['flash'] = 'The board has been updated.';
         $return = (int)input('return_thread', $_POST);
         redirect('/admin.php' . ($return && $action !== 'delete_thread' ? '?thread=' . $return : ''));
     } catch (Throwable $exception) {
-        try { db()->exec('ROLLBACK'); } catch (PDOException) {}
+        if (db()->inTransaction()) db()->rollBack();
         $expected = $exception instanceof RuntimeException && !$exception instanceof PDOException;
         if (!$expected) error_log((string)$exception);
         $error = $expected ? $exception->getMessage() : 'The change could not be saved. Please try again.';

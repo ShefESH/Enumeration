@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import socket
 import sqlite3
+from mysql_test import database, sql
 import struct
 import subprocess
 import tempfile
@@ -56,12 +57,6 @@ class Client:
         return re.search(r'name="csrf" value="([a-f0-9]+)"', html).group(1)
 
 
-def sql(directory, statement, values=()):
-    with sqlite3.connect(directory / 'forum.sqlite') as con:
-        con.execute('PRAGMA foreign_keys = ON')
-        return con.execute(statement, values).fetchall()
-
-
 def image_png():
     def chunk(kind, data):
         return struct.pack('!I', len(data)) + kind + data + struct.pack('!I', zlib.crc32(kind + data))
@@ -70,21 +65,25 @@ def image_png():
 
 @contextlib.contextmanager
 def server():
-    with tempfile.TemporaryDirectory(prefix='enumeration-account-test-') as temp:
+    with tempfile.TemporaryDirectory(prefix='enumeration-account-test-') as temp, database(temp) as env:
         directory = Path(temp)
-        env = dict(os.environ, FORUM_DATA_DIR=temp, FORUM_LAB_MODE='0')
         env.pop('FORUM_ADMIN_HASH', None)
         # Create a genuine pre-account schema and record to exercise in-place migration.
-        schema = (ROOT / 'app/schema.sql').read_text()
-        schema = re.sub(r'CREATE TABLE IF NOT EXISTS users \(.*?\);\n', '', schema, flags=re.S)
-        schema = schema.replace('    account_id INTEGER REFERENCES users(id),\n', '')
-        schema = schema.replace('    reply_to INTEGER REFERENCES posts(id) ON DELETE SET NULL,\n', '')
         with sqlite3.connect(directory / 'forum.sqlite') as con:
-            con.executescript(schema)
-            con.execute("INSERT INTO boards VALUES ('gen', 'General', '')")
-            con.execute("INSERT INTO threads (board_slug, subject) VALUES ('gen', 'Legacy thread')")
-            con.execute("INSERT INTO anonymous_users (token_hash) VALUES ('legacy-test')")
-            con.execute("INSERT INTO posts (thread_id,user_id,body) VALUES (1,1,'Legacy body')")
+            con.executescript("""
+                CREATE TABLE boards (slug TEXT PRIMARY KEY, title TEXT, description TEXT);
+                CREATE TABLE threads (id INTEGER PRIMARY KEY, board_slug TEXT, subject TEXT);
+                CREATE TABLE anonymous_users (id INTEGER PRIMARY KEY, token_hash TEXT);
+                CREATE TABLE posts (id INTEGER PRIMARY KEY, thread_id INTEGER, user_id INTEGER, body TEXT);
+                INSERT INTO boards VALUES ('gen', 'General', '');
+                INSERT INTO threads VALUES (1, 'gen', 'Legacy thread');
+                INSERT INTO anonymous_users VALUES (1, 'legacy-test');
+                INSERT INTO posts VALUES (1, 1, 1, 'Legacy body');
+            """)
+        source_bytes = (directory / 'forum.sqlite').read_bytes()
+        subprocess.run(['php', 'bin/migrate-sqlite.php', str(directory / 'forum.sqlite')], cwd=ROOT, env=env, check=True, capture_output=True)
+        assert source_bytes == (directory / 'forum.sqlite').read_bytes()
+        assert subprocess.run(['php', 'bin/migrate-sqlite.php', str(directory / 'forum.sqlite')], cwd=ROOT, env=env, capture_output=True).returncode == 1
         with socket.socket() as sock:
             sock.bind(('127.0.0.1', 0))
             port = sock.getsockname()[1]
@@ -110,7 +109,7 @@ def run():
     with server() as (alice, directory, env):
         assert sql(directory, 'SELECT body, user_id, account_id FROM posts WHERE id=1') == [('Legacy body', 1, None)]
         home = alice.text('/')[1]
-        assert 'Server time:' in home and re.search(r'PHP \d+\.\d+', home) and re.search(r'SQLite \d+\.\d+', home)
+        assert 'Server time:' in home and re.search(r'PHP \d+\.\d+', home) and re.search(r'MySQL \d+\.\d+', home)
         assert 'All times are UTC' not in home
         assert 'Legacy body' in alice.text('/gen/1')[1]
         for route, expected in [('/gen/', 'Board index / gen'), ('/gen/1', 'Board index / gen / Legacy thread'), ('/search.php?board=gen', 'Board index / gen / Search'), ('/books/', 'Board index / books'), ('/film/', 'Board index / film')]:

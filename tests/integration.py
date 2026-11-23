@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import re
 import socket
-import sqlite3
+from mysql_test import database, sql
 import struct
 import subprocess
 import tempfile
@@ -59,8 +59,8 @@ class Client:
 
 @contextlib.contextmanager
 def server(lab=False):
-    with tempfile.TemporaryDirectory(prefix='enumeration-test-') as directory:
-        env = dict(os.environ, FORUM_DATA_DIR=directory, FORUM_LAB_MODE='1' if lab else '0')
+    with tempfile.TemporaryDirectory(prefix='enumeration-test-') as directory, database(directory) as env:
+        env['FORUM_LAB_MODE'] = '1' if lab else '0'
         env.pop('FORUM_ADMIN_HASH', None)
         subprocess.run(['php', 'bin/seed.php'], cwd=ROOT, env=env, check=True, capture_output=True)
         subprocess.run(['php', 'bin/admin.php'], cwd=ROOT, env=env, input=PASSWORD+'\n', text=True, check=True, capture_output=True)
@@ -88,11 +88,6 @@ def server(lab=False):
                 assert 'PHP Fatal error' not in logs, logs
 
 
-def sql(directory, statement, params=()):
-    with sqlite3.connect(directory / 'forum.sqlite') as con:
-        return con.execute(statement, params).fetchall()
-
-
 def png():
     def chunk(kind, data):
         return struct.pack('!I', len(data)) + kind + data + struct.pack('!I', zlib.crc32(kind + data))
@@ -104,6 +99,10 @@ def run():
         for path in ['/', '/gen/', '/tech/', '/art/', '/music/', '/games/', '/books/', '/film/', '/rules.php', '/admin.php']:
             assert client.text(path)[0] == 200, path
         for path in ['/missing/', '/gen/999999', '/tech/1', '/app/bootstrap.php', '/data/forum.sqlite', '/.git/config', '/assets/../../app/bootstrap.php']:
+            assert client.text(path)[0] == 404, path
+        for path in ['/backup/', '/backup/forum.sql', '/admin/', '/administrator/', '/old/', '/dev/', '/staging/', '/config/database.ini.bak', '/logs/maintenance.txt', '/uploads/', '/test/', '/private/', '/backups/', '/server-status/', '/robots.txt']:
+            assert client.text(path)[0] == 200, path
+        for path in ['/config.php', '/config.example.php', '/backup/missing.sql', '/dev/../app/bootstrap.php']:
             assert client.text(path)[0] == 404, path
         assert client.text('/post.php')[0] == 405
         assert client.text('/image.php?file=../forum.sqlite')[0] == 404
@@ -202,6 +201,9 @@ def run():
 
     with server(lab=True) as (client, directory, _):
         assert '/gen/999' in client.text(search_url)[1]
+        long_payload = "unlikely%' " + ' ' * 160 + "UNION SELECT 998,'long-payload-marker','gen','2005'-- "
+        long_url = '/search.php?' + urllib.parse.urlencode(dict(board='gen', q=long_payload))
+        assert '/gen/998' in client.text(long_url)[1]
         yes = '/search.php?' + urllib.parse.urlencode(dict(board='gen', q="Welcome%' AND 1=1-- "))
         no = '/search.php?' + urllib.parse.urlencode(dict(board='gen', q="Welcome%' AND 1=2-- "))
         assert '/gen/2' in client.text(yes)[1]
