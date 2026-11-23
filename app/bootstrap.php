@@ -62,6 +62,7 @@ function initialize_database(): void {
     }
     $insert = db()->prepare('INSERT INTO boards (slug, title, description) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE title=boards.title');
     foreach (BOARDS as $slug => [$title, $description]) $insert->execute([$slug, $title, $description]);
+    query('INSERT INTO secrets (id, value) VALUES (1, ?) ON DUPLICATE KEY UPDATE value=secrets.value', ['SHEFESH{payload}']);
 }
 function query(string $sql, array $params = []): PDOStatement {
     $statement = db()->prepare($sql); $statement->execute($params); return $statement;

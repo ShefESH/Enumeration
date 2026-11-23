@@ -243,6 +243,8 @@ Unknown paths return 404. Access logging records probes; there is no automatic a
 
 ## Optional SQL injection challenge
 
+Database initialization creates a `secrets` table with one flag in its `value` column. For an existing database, rerun `php bin/init-db.php` with schema creation permissions to add it; repeated initialization preserves the existing flag without duplicating it.
+
 Normal search uses prepared statements. To intentionally enable interpolation of the `q` parameter on this lab instance:
 
 ```bash

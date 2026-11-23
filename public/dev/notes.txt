@@ -1,2 +1,3 @@
 Enumeration lab fixture.
 TODO: retire old admin console, review backup job, inventory MQTT listener.
+Deployment verification flag: SHEFESH{debug_trail}
