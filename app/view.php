@@ -8,7 +8,7 @@ function page_header(string $title, string $active = ''): void {
 <body id="top"><a class="skip-link" href="#content">Skip to content</a><div class="site">
 <div class="userbar"><div class="account-nav"><?php if ($user = current_user()): ?><span>Logged in as <a href="/account.php"><?= e($user['username']) ?></a></span><form method="post" action="/account.php"><?php csrf_field(); ?><button class="text-button" name="action" value="logout">Log out</button></form><?php else: ?><span>Welcome, Guest.</span><a class="auth-link" href="/login.php">Log in</a><a class="auth-link" href="/register.php">Register</a><?php endif; ?></div><nav class="utility-nav" aria-label="Main navigation"><a href="/search.php<?= $active ? '?board=' . e($active) : '' ?>">Search</a><a href="/rules.php">Board rules</a></nav></div>
 <header class="site-header"><a class="brand" href="/" aria-label="Enumeration board index"><span class="wordmark">Enumeration</span><span class="site-name">Community Forums</span></a></header>
-<div class="navigation-strip"><a class="index-link" href="/">Board index</a><nav aria-label="Boards" class="boardnav"><?php foreach (BOARDS as $slug => $info): ?><a <?= $active === $slug ? 'aria-current="page"' : '' ?> href="/<?= e($slug) ?>/">/<?= e($slug) ?>/</a><?php endforeach; ?></nav></div>
+<div class="navigation-strip"><a class="index-link" href="/">Board index</a><nav aria-label="Boards" class="boardnav"><?php foreach (['gen', 'tech', 'games', 'music', 'film'] as $slug): ?><a <?= $active === $slug ? 'aria-current="page"' : '' ?> href="/<?= e($slug) ?>/">/<?= e($slug) ?>/</a><?php endforeach; ?></nav></div>
 
 <main id="content"><?php
 }
