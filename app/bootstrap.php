@@ -18,6 +18,13 @@ function db(): PDO {
     $db = new PDO('sqlite:' . data_dir() . '/forum.sqlite', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
     $db->exec('PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000; PRAGMA journal_mode = WAL;');
     $db->exec(file_get_contents(ROOT . '/app/schema.sql'));
+    // Upgrade existing databases without dropping posts or attachments.
+    $columns = $db->query('PRAGMA table_info(posts)')->fetchAll(PDO::FETCH_COLUMN, 1);
+    if (!in_array('user_id', $columns, true)) {
+        $db->exec('ALTER TABLE posts ADD COLUMN user_id INTEGER REFERENCES anonymous_users(id)');
+    }
+    $db->exec("INSERT OR IGNORE INTO anonymous_users (token_hash) SELECT 'legacy:' || id FROM posts WHERE user_id IS NULL");
+    $db->exec("UPDATE posts SET user_id=(SELECT id FROM anonymous_users WHERE token_hash='legacy:' || posts.id) WHERE user_id IS NULL");
     $insert = $db->prepare('INSERT OR IGNORE INTO boards (slug, title, description) VALUES (?, ?, ?)');
     foreach (BOARDS as $slug => [$title, $description]) $insert->execute([$slug, $title, $description]);
     return $db;
@@ -25,6 +32,7 @@ function db(): PDO {
 function query(string $sql, array $params = []): PDOStatement {
     $statement = db()->prepare($sql); $statement->execute($params); return $statement;
 }
+function padded_id(int $id): string { return str_pad((string)$id, 8, '0', STR_PAD_LEFT); }
 function e(mixed $value): string { return htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
 function input(string $key, array $source): string { return isset($source[$key]) && is_string($source[$key]) ? trim($source[$key]) : ''; }
 function redirect(string $path): never { header('Location: ' . $path, true, 303); exit; }

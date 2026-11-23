@@ -1,5 +1,17 @@
 <?php
 require_once __DIR__ . '/bootstrap.php';
+function anonymous_user_id(): int {
+    $token = input('forum_visitor', $_COOKIE);
+    if (preg_match('/^[a-f0-9]{64}$/D', $token)) {
+        $id = query('SELECT id FROM anonymous_users WHERE token_hash=?', [hash('sha256', $token)])->fetchColumn();
+        if ($id !== false) return (int)$id;
+    }
+    $token = bin2hex(random_bytes(32));
+    query('INSERT INTO anonymous_users (token_hash) VALUES (?)', [hash('sha256', $token)]);
+    $id = (int)db()->lastInsertId();
+    setcookie('forum_visitor', $token, ['expires' => time() + 31536000, 'path' => '/', 'httponly' => true, 'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off', 'samesite' => 'Lax']);
+    return $id;
+}
 function rate_limit(string $scope, int $max, int $window): void {
     $key = hash('sha256', $scope . ':' . ($_SERVER['REMOTE_ADDR'] ?? 'local'));
     query('DELETE FROM rate_limits WHERE expires < ?', [time()]);

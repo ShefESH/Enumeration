@@ -21,10 +21,10 @@ $pages = max(1, (int)ceil($total / 10)); $page = min($page, $pages);
 $threads = query('SELECT t.*, (SELECT COUNT(*) FROM posts WHERE thread_id=t.id) post_count FROM threads t WHERE board_slug=? ORDER BY pinned DESC, bumped_at DESC, id DESC LIMIT 10 OFFSET ' . (($page - 1) * 10), [$slug])->fetchAll();
 page_header('/' . $slug . '/ — ' . $board['title'], $slug); ?>
 <div class="page-heading"><div><h1>/<?= e($slug) ?>/ <span><?= e($board['title']) ?></span></h1></div><a href="#compose">[Start a new thread]</a></div>
-<div class="board-tools"><span><?= $total ?> threads · First 5 posts shown</span><form action="/search.php" method="get"><input type="hidden" name="board" value="<?= e($slug) ?>"><label class="sr-only" for="search">Search this board</label><input id="search" name="q" placeholder="Search this board…" maxlength="120" required><button>Search</button></form></div>
+<div class="board-layout"><div class="board-content"><div class="board-tools"><span><?= $total ?> threads | First 5 posts shown</span><form action="/search.php" method="get"><input type="hidden" name="board" value="<?= e($slug) ?>"><label class="sr-only" for="search">Search this board</label><input id="search" name="q" placeholder="Search this board…" maxlength="120" required><button>Search</button></form></div>
 <?php if (!$threads): ?><div class="panel empty"><p>No threads.</p></div><?php endif; foreach ($threads as $thread): ?>
 <section class="thread">
 <?php $posts = query('SELECT * FROM posts WHERE thread_id=? ORDER BY id LIMIT 5', [$thread['id']])->fetchAll(); foreach ($posts as $i => $post) render_post($post, $thread, $i === 0); ?>
 <div class="thread-footer"><span><?= (int)$thread['post_count'] > 5 ? ((int)$thread['post_count'] - 5) . ' posts omitted.' : '' ?></span><a href="/<?= e($slug) ?>/<?= (int)$thread['id'] ?>">[View thread]</a></div></section><?php endforeach; ?>
 <nav class="pagination" aria-label="Pages"><?php if ($page > 1): ?><a href="?page=<?= $page - 1 ?>">« Previous</a><?php endif; ?><span>Page <?= $page ?> of <?= $pages ?></span><?php if ($page < $pages): ?><a href="?page=<?= $page + 1 ?>">Next »</a><?php endif; ?></nav>
-<?php post_form($slug); page_footer();
+</div><aside class="posting-sidebar"><?php post_form($slug); ?></aside></div><?php page_footer();

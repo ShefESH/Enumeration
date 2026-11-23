@@ -17,6 +17,7 @@ try {
     rate_limit('post', 12, 60);
     $image = save_image();
     if ($body === '' && !$image) throw new RuntimeException('Add a message or an image before posting.');
+    $userId = anonymous_user_id();
     db()->exec('BEGIN IMMEDIATE');
     // Recheck under the write lock so moderation and replies cannot race.
     if ($thread) {
@@ -26,7 +27,7 @@ try {
         query('INSERT INTO threads (board_slug, subject) VALUES (?, ?)', [$slug, $subject]);
         $threadId = (int)db()->lastInsertId();
     }
-    query('INSERT INTO posts (thread_id, body, image, image_name, image_width, image_height) VALUES (?, ?, ?, ?, ?, ?)', [(int)$threadId, $body, ...($image ?? [null, null, null, null])]);
+    query('INSERT INTO posts (thread_id, user_id, body, image, image_name, image_width, image_height) VALUES (?, ?, ?, ?, ?, ?, ?)', [(int)$threadId, $userId, $body, ...($image ?? [null, null, null, null])]);
     $postId = (int)db()->lastInsertId();
     query("UPDATE threads SET bumped_at=strftime('%Y-%m-%d %H:%M:%S', 'now') WHERE id=?", [(int)$threadId]);
     db()->exec('COMMIT');

@@ -88,3 +88,22 @@ th { background: var(--reply); }
   th, td { padding: 8px; }
   .directory td:first-child { width: auto; }
 }
+/* Board content and posting form share the screen on desktop. */
+.board-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 28px; align-items: start; }
+.board-content { min-width: 0; }
+.posting-sidebar { position: sticky; top: 12px; }
+.posting-sidebar .composer { margin: 0; max-width: none; }
+.posting-sidebar .composer h2 { text-align: left; }
+.posting-sidebar .form-row { display: block; margin-bottom: 12px; }
+.posting-sidebar label { display: block; margin-bottom: 4px; padding: 0; border: 0; background: var(--page); }
+.posting-sidebar input, .posting-sidebar textarea { width: 100%; }
+.posting-sidebar .form-actions { margin: 0; }
+.reply { border: 0; }
+main, .thread, .pagination, th, td, table, .moderation-row, .admin-post { border-color: var(--reply); }
+.form-row label { border: 0; }
+.user-id { white-space: nowrap; }
+@media (max-width: 900px) {
+  .board-layout { grid-template-columns: 1fr; gap: 16px; }
+  .posting-sidebar { position: static; }
+  .posting-sidebar .composer { max-width: 680px; margin: 0 auto 20px; }
+}

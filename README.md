@@ -3,6 +3,7 @@
 A simple anonymous PHP bulletin board. A pale page, compact Arial text, inline post metadata, left-aligned thumbnails, and indented replies sized to their content. Exactly four CSS colours: pale blue, lavender, dark blue, and black. No frontend dependencies.
 
 - `/gen/`, `/tech/`, `/art/`, `/music/`, `/games/` boards.
+- Anonymous browser IDs and message IDs, displayed with at least eight digits. Visitor IDs use an HttpOnly cookie and require no account.
 - Anonymous threads and replies, with the first **five posts including the opening post** on board pages. `/gen/123` shows the entire conversation.
 - Ten threads per board page, ordered by pinned status and latest activity.
 - Optional image attachments, image-only replies, and subject search.
@@ -68,7 +69,7 @@ Configure PHP `upload_max_filesize=4M` and `post_max_size=6M`, a writable sessio
 - Posting: 12 attempts per minute per source IP. Admin login: 5 attempts per five minutes per source IP. These limits use `REMOTE_ADDR`, not client-supplied proxy headers.
 - Session-based CSRF protection on all mutations; escaped text; strict image serving; restrictive CSP. Admin sessions expire after two hours and are invalidated when the password changes.
 - Removing the opening post requires deleting its thread. Deletions require an explicit checkbox, and remove associated stored images. Closing a thread prevents new replies.
-- Public posts contain no usernames or stored IP addresses. Rate limits temporarily retain hashed IP-derived keys. The web server can still log visitor addresses; this is not an anonymity service.
+- Public posts contain no usernames or stored IP addresses. Posts display a stable browser ID; clearing the visitor cookie creates a new identity. Existing posts are assigned legacy IDs during migration because their original visitors were not recorded. Rate limits temporarily retain hashed IP-derived keys. The web server can still log visitor addresses; this is not an anonymity service.
 - Small-community scope: no accounts, notifications, private messaging, automatic content moderation, or upload storage quota. Moderators are responsible for keeping uploaded content suitable for everyone.
 
 ## Checks

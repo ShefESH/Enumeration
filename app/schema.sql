@@ -10,9 +10,14 @@ CREATE TABLE IF NOT EXISTS threads (
     locked INTEGER NOT NULL DEFAULT 0,
     pinned INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS anonymous_users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token_hash TEXT NOT NULL UNIQUE
+);
 CREATE TABLE IF NOT EXISTS posts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     thread_id INTEGER NOT NULL REFERENCES threads(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES anonymous_users(id),
     body TEXT NOT NULL,
     image TEXT,
     image_name TEXT,

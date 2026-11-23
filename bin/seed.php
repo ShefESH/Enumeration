@@ -13,7 +13,7 @@ $threads = [
         'First proper frost this morning. Everything looked like it had been dusted with sugar.',
         'My bread came out looking like actual bread. A personal milestone.',
     ]],
-    ['gen', 'Welcome to Small Hours. Make yourself at home.', [
+    ['gen', 'Welcome to the board', [
         "This is a small bulletin board for whatever you’re thinking about. No accounts, no introductions required.\n\nPick a board, start a thread, or reply to someone. Images are welcome. Kindness is required.\n\nWhat brought you here?",
         'The distinct lack of notification sounds. Lovely place you have here.',
     ]],
@@ -31,7 +31,11 @@ foreach ($threads as $index => [$slug, $subject, $messages]) {
     $stamp = gmdate('Y-m-d H:i:s', time() - (count($threads) - $index) * 3600);
     query('INSERT INTO threads (board_slug, subject, created_at, bumped_at, pinned) VALUES (?, ?, ?, ?, ?)', [$slug, $subject, $stamp, $stamp, $index === 1 ? 1 : 0]);
     $id = (int)db()->lastInsertId();
-    foreach ($messages as $i => $body) query('INSERT INTO posts (thread_id, body, created_at) VALUES (?, ?, ?)', [$id, $body, gmdate('Y-m-d H:i:s', strtotime($stamp . ' UTC') + $i * 120)]);
+    foreach ($messages as $i => $body) {
+        query('INSERT OR IGNORE INTO anonymous_users (token_hash) VALUES (?)', ['demo:' . $i]);
+        $user = query('SELECT id FROM anonymous_users WHERE token_hash=?', ['demo:' . $i])->fetchColumn();
+        query('INSERT INTO posts (thread_id, user_id, body, created_at) VALUES (?, ?, ?, ?)', [$id, $user, $body, gmdate('Y-m-d H:i:s', strtotime($stamp . ' UTC') + $i * 120)]);
+    }
 }
 db()->commit();
 echo "Added six friendly demo threads.\n";
